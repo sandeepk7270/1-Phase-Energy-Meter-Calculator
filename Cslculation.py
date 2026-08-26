@@ -9,8 +9,9 @@ class EnergyMeterCalculator:
 
         self.root = root
         self.root.title("1-Phase Energy Meter Calculator")
-        self.root.geometry("1250x850")
-        self.root.minsize(1100, 750)
+        self.root.geometry("1100x760")
+        self.root.minsize(360, 600)
+        self.layout_mode = None
 
         # =========================================================
         # COLORS
@@ -149,33 +150,103 @@ class EnergyMeterCalculator:
             pady=15
         )
 
-        tk.Label(
+        self.header_title = tk.Label(
             title_frame,
             text="1-PHASE ENERGY METER CALCULATOR",
             font=("Segoe UI", 24, "bold"),
             fg="white",
             bg=self.DARK_BLUE
-        ).pack(
+        )
+
+        self.header_title.pack(
             anchor="w"
         )
 
-        tk.Label(
+        self.header_subtitle = tk.Label(
             title_frame,
             text="Power  |  Energy  |  Maximum Demand (MD)",
             font=("Segoe UI", 12),
             fg="#A8D3FF",
             bg=self.DARK_BLUE
-        ).pack(
+        )
+
+        self.header_subtitle.pack(
             anchor="w",
             pady=(3, 0)
         )
+
+        content = tk.Frame(
+            self.root,
+            bg="#F5F8FC"
+        )
+
+        content.pack(
+            fill="both",
+            expand=True
+        )
+
+        scrollbar = ttk.Scrollbar(
+            content,
+            orient="vertical"
+        )
+
+        scrollbar.pack(
+            side="right",
+            fill="y"
+        )
+
+        canvas = tk.Canvas(
+            content,
+            bg="#F5F8FC",
+            highlightthickness=0,
+            yscrollcommand=scrollbar.set
+        )
+
+        canvas.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        scrollbar.config(command=canvas.yview)
+
+        scrollable = tk.Frame(
+            canvas,
+            bg="#F5F8FC"
+        )
+
+        canvas_window = canvas.create_window(
+            (0, 0),
+            window=scrollable,
+            anchor="nw"
+        )
+
+        scrollable.bind(
+            "<Configure>",
+            lambda event: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.bind(
+            "<Configure>",
+            lambda event: canvas.itemconfigure(
+                canvas_window,
+                width=event.width
+            )
+        )
+
+        self.canvas = canvas
+        self.root.bind_all("<MouseWheel>", self._on_mousewheel, "+")
+        self.root.bind_all("<Button-4>", self._on_mousewheel, "+")
+        self.root.bind_all("<Button-5>", self._on_mousewheel, "+")
 
         # ======================================================
         # MAIN AREA
         # ======================================================
 
         main = tk.Frame(
-            self.root,
+            scrollable,
             bg="#F5F8FC"
         )
 
@@ -198,6 +269,7 @@ class EnergyMeterCalculator:
             fill="y",
             padx=(0, 12)
         )
+        left.pack_propagate(False)
 
         # Right column
         right = tk.Frame(
@@ -219,7 +291,72 @@ class EnergyMeterCalculator:
 
         self.create_md_panel(right)
 
-        self.create_formula_panel()
+        self.create_formula_panel(scrollable)
+
+        self.left_column = left
+        self.right_column = right
+        self.root.bind("<Configure>", self.adapt_layout)
+        self.root.after_idle(self.adapt_layout)
+
+    def _on_mousewheel(self, event):
+
+        event_num = getattr(event, "num", None)
+        if event_num == 4:
+            movement = -1
+        elif event_num == 5:
+            movement = 1
+        else:
+            delta = getattr(event, "delta", 0)
+            movement = -int(delta / 120) if delta else 0
+
+        if movement:
+            self.canvas.yview_scroll(movement, "units")
+
+    def adapt_layout(self, event=None):
+
+        if event is not None and event.widget is not self.root:
+            return
+
+        is_mobile = self.root.winfo_width() < 800
+        new_mode = "mobile" if is_mobile else "laptop"
+
+        if new_mode == self.layout_mode:
+            return
+
+        self.layout_mode = new_mode
+        self.left_column.pack_forget()
+        self.right_column.pack_forget()
+
+        if is_mobile:
+            self.left_column.pack(
+                side="top",
+                fill="x",
+                padx=0,
+                pady=(0, 12)
+            )
+            self.left_column.pack_propagate(True)
+            self.right_column.pack(
+                side="top",
+                fill="x",
+                expand=False,
+                padx=0
+            )
+            self.header_title.config(font=("Segoe UI", 15, "bold"))
+            self.header_subtitle.config(font=("Segoe UI", 9))
+        else:
+            self.left_column.pack(
+                side="left",
+                fill="y",
+                padx=(0, 12)
+            )
+            self.left_column.pack_propagate(False)
+            self.right_column.pack(
+                side="left",
+                fill="both",
+                expand=True
+            )
+            self.header_title.config(font=("Segoe UI", 24, "bold"))
+            self.header_subtitle.config(font=("Segoe UI", 12))
 
     # =========================================================
     # INPUT PANEL
@@ -954,10 +1091,10 @@ class EnergyMeterCalculator:
     # FORMULA PANEL
     # =========================================================
 
-    def create_formula_panel(self):
+    def create_formula_panel(self, parent):
 
         panel = tk.Frame(
-            self.root,
+            parent,
             bg="white",
             highlightbackground=self.BORDER,
             highlightthickness=1
