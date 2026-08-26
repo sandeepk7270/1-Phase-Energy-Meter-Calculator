@@ -3,531 +3,1339 @@ from tkinter import ttk, messagebox
 import math
 
 
-class SinglePhaseEnergyMeter:
+class EnergyMeterCalculator:
 
     def __init__(self, root):
 
         self.root = root
         self.root.title("1-Phase Energy Meter Calculator")
-        self.root.geometry("900x700")
-        self.root.resizable(True, True)
+        self.root.geometry("1250x850")
+        self.root.minsize(1100, 750)
 
-        # ==========================
+        # =========================================================
+        # COLORS
+        # =========================================================
+
+        self.BLUE = "#0645AD"
+        self.DARK_BLUE = "#073B8C"
+        self.LIGHT_BLUE = "#EAF4FF"
+        self.WHITE = "#FFFFFF"
+
+        self.GREEN = "#DDF8E8"
+        self.GREEN_TEXT = "#087A43"
+
+        self.YELLOW = "#FFF5CC"
+        self.YELLOW_TEXT = "#8A6500"
+
+        self.PURPLE = "#F5E5FF"
+        self.PURPLE_TEXT = "#7020A0"
+
+        self.BORDER = "#B7D4F5"
+        self.TEXT = "#172033"
+        self.GRAY = "#667085"
+
+        self.root.configure(bg="#F5F8FC")
+
+        # =========================================================
         # INPUT VARIABLES
-        # ==========================
+        # =========================================================
 
-        self.voltage = tk.StringVar(value="230")
-        self.current = tk.StringVar(value="5")
-        self.pf = tk.StringVar(value="0.8")
-        self.time = tk.StringVar(value="3600")
-        self.md_interval = tk.StringVar(value="15")
+        self.voltage_var = tk.StringVar(value="230")
+        self.current_var = tk.StringVar(value="5")
 
-        # ==========================
-        # RESULT VARIABLES
-        # ==========================
+        self.pf_type_var = tk.StringVar(value="Direct PF")
+        self.pf_value_var = tk.StringVar(value="0.8")
 
-        self.active_power = tk.StringVar()
-        self.reactive_power = tk.StringVar()
-        self.apparent_power = tk.StringVar()
+        self.time_var = tk.StringVar(value="3600")
+        self.md_interval_var = tk.StringVar(value="900")
 
-        self.active_energy = tk.StringVar()
-        self.reactive_energy = tk.StringVar()
-        self.apparent_energy = tk.StringVar()
+        # =========================================================
+        # OUTPUT VARIABLES
+        # =========================================================
 
-        self.active_md = tk.StringVar()
-        self.reactive_md = tk.StringVar()
-        self.apparent_md = tk.StringVar()
+        self.active_power_var = tk.StringVar(value="0.000 W")
+        self.reactive_power_var = tk.StringVar(value="0.000 VAR")
+        self.apparent_power_var = tk.StringVar(value="0.000 VA")
 
-        self.create_gui()
+        self.pf_var = tk.StringVar(value="0.00000")
+        self.angle_var = tk.StringVar(value="0.000°")
 
-    # ============================================================
-    # GUI
-    # ============================================================
+        self.active_energy_var = tk.StringVar(value="0.00000 kWh")
+        self.reactive_energy_var = tk.StringVar(value="0.00000 kVARh")
+        self.apparent_energy_var = tk.StringVar(value="0.00000 kVAh")
 
-    def create_gui(self):
+        self.active_md_var = tk.StringVar(value="0.000 kW")
+        self.reactive_md_var = tk.StringVar(value="0.000 kVAR")
+        self.apparent_md_var = tk.StringVar(value="0.000 kVA")
 
-        canvas = tk.Canvas(self.root, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(
+        self.create_styles()
+        self.create_ui()
+
+        self.calculate()
+
+    # =========================================================
+    # STYLES
+    # =========================================================
+
+    def create_styles(self):
+
+        style = ttk.Style()
+
+        try:
+            style.theme_use("clam")
+        except:
+            pass
+
+        style.configure(
+            "TButton",
+            font=("Segoe UI", 10, "bold"),
+            padding=(15, 8)
+        )
+
+        style.configure(
+            "TCombobox",
+            font=("Segoe UI", 10)
+        )
+
+        style.configure(
+            "TEntry",
+            font=("Segoe UI", 10)
+        )
+
+    # =========================================================
+    # MAIN UI
+    # =========================================================
+
+    def create_ui(self):
+
+        # ======================================================
+        # HEADER
+        # ======================================================
+
+        header = tk.Frame(
             self.root,
-            orient="vertical",
-            command=canvas.yview
-        )
-        scrollable_frame = ttk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda event: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
+            bg=self.DARK_BLUE,
+            height=105
         )
 
-        canvas_window = canvas.create_window(
-            (0, 0),
-            window=scrollable_frame,
-            anchor="nw"
-        )
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.bind(
-            "<Configure>",
-            lambda event: canvas.itemconfigure(
-                canvas_window,
-                width=event.width
-            )
+        header.pack(
+            fill="x",
+            side="top"
         )
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        header.pack_propagate(False)
 
-        scrollable_frame.columnconfigure(0, weight=1)
-        scrollable_frame.columnconfigure(1, weight=1)
-
-        title = ttk.Label(
-            scrollable_frame,
-            text="1-PHASE ENERGY METER CALCULATOR",
-            font=("Arial", 15, "bold")
+        # Meter icon
+        icon = tk.Label(
+            header,
+            text="⚡",
+            font=("Segoe UI", 38),
+            fg="#FFD21F",
+            bg=self.DARK_BLUE
         )
 
-        title.grid(
-            row=0,
-            column=0,
-            columnspan=2,
-            pady=10
+        icon.pack(
+            side="left",
+            padx=(30, 15)
         )
 
-        # ========================================================
-        # INPUT FRAME
-        # ========================================================
-
-        input_frame = ttk.LabelFrame(
-            scrollable_frame,
-            text="Meter Input",
-            padding=8
+        title_frame = tk.Frame(
+            header,
+            bg=self.DARK_BLUE
         )
 
-        input_frame.grid(
-            row=1,
-            column=0,
-            padx=(15, 7),
-            pady=10,
-            sticky="nsew"
-        )
-
-        # Voltage
-
-        ttk.Label(
-            input_frame,
-            text="Voltage (V):"
-        ).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-
-        ttk.Entry(
-            input_frame,
-            textvariable=self.voltage,
-            width=20
-        ).grid(row=0, column=1, padx=10, pady=5)
-
-        # Current
-
-        ttk.Label(
-            input_frame,
-            text="Current (A):"
-        ).grid(row=1, column=0, padx=10, pady=5, sticky="w")
-
-        ttk.Entry(
-            input_frame,
-            textvariable=self.current,
-            width=20
-        ).grid(row=1, column=1, padx=10, pady=5)
-
-        # Power Factor
-
-        ttk.Label(
-            input_frame,
-            text="Power Factor:"
-        ).grid(row=2, column=0, padx=10, pady=5, sticky="w")
-
-        ttk.Entry(
-            input_frame,
-            textvariable=self.pf,
-            width=20
-        ).grid(row=2, column=1, padx=10, pady=5)
-
-        # Time
-
-        ttk.Label(
-            input_frame,
-            text="Time (Seconds):"
-        ).grid(row=3, column=0, padx=10, pady=5, sticky="w")
-
-        ttk.Entry(
-            input_frame,
-            textvariable=self.time,
-            width=20
-        ).grid(row=3, column=1, padx=10, pady=5)
-
-        # IP time
-
-        ttk.Label(
-            input_frame,
-            text="IP Time (minutes):"
-        ).grid(row=4, column=0, padx=10, pady=5, sticky="w")
-
-        md_combo = ttk.Combobox(
-            input_frame,
-            textvariable=self.md_interval,
-            values=["15", "30", "60"],
-            state="readonly",
-            width=17
-        )
-
-        md_combo.grid(row=4, column=1, padx=10, pady=5)
-
-        ttk.Label(
-            input_frame,
-            text="Seconds"
-        ).grid(row=4, column=2, padx=5)
-
-        # Calculate Button
-
-        ttk.Button(
-            input_frame,
-            text="CALCULATE",
-            command=self.calculate
-        ).grid(
-            row=5,
-            column=0,
-            columnspan=3,
+        title_frame.pack(
+            side="left",
             pady=15
         )
 
-        # ========================================================
-        # POWER FRAME
-        # ========================================================
-
-        power_frame = ttk.LabelFrame(
-            scrollable_frame,
-            text="Power Calculation",
-            padding=8
+        tk.Label(
+            title_frame,
+            text="1-PHASE ENERGY METER CALCULATOR",
+            font=("Segoe UI", 24, "bold"),
+            fg="white",
+            bg=self.DARK_BLUE
+        ).pack(
+            anchor="w"
         )
 
-        power_frame.grid(
-            row=1,
-            column=1,
-            padx=(7, 12),
-            pady=10,
-            sticky="nsew"
+        tk.Label(
+            title_frame,
+            text="Power  |  Energy  |  Maximum Demand (MD)",
+            font=("Segoe UI", 12),
+            fg="#A8D3FF",
+            bg=self.DARK_BLUE
+        ).pack(
+            anchor="w",
+            pady=(3, 0)
         )
 
-        ttk.Label(
-            power_frame,
-            text="Active Power"
-        ).grid(row=0, column=0, padx=12, pady=4)
+        # ======================================================
+        # MAIN AREA
+        # ======================================================
 
-        ttk.Label(
-            power_frame,
-            textvariable=self.active_power,
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, padx=15, pady=5)
-
-        ttk.Label(
-            power_frame,
-            text="Reactive Power"
-        ).grid(row=1, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            power_frame,
-            textvariable=self.reactive_power,
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=1, padx=15, pady=5)
-
-        ttk.Label(
-            power_frame,
-            text="Apparent Power"
-        ).grid(row=2, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            power_frame,
-            textvariable=self.apparent_power,
-            font=("Arial", 11, "bold")
-        ).grid(row=2, column=1, padx=15, pady=5)
-
-        # ========================================================
-        # ENERGY FRAME
-        # ========================================================
-
-        energy_frame = ttk.LabelFrame(
-            scrollable_frame,
-            text="Energy Calculation",
-            padding=10
+        main = tk.Frame(
+            self.root,
+            bg="#F5F8FC"
         )
 
-        energy_frame.grid(
+        main.pack(
+            fill="both",
+            expand=True,
+            padx=18,
+            pady=18
+        )
+
+        # Left column
+        left = tk.Frame(
+            main,
+            bg="#F5F8FC",
+            width=390
+        )
+
+        left.pack(
+            side="left",
+            fill="y",
+            padx=(0, 12)
+        )
+
+        # Right column
+        right = tk.Frame(
+            main,
+            bg="#F5F8FC"
+        )
+
+        right.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        self.create_input_panel(left)
+
+        self.create_power_panel(right)
+
+        self.create_energy_panel(right)
+
+        self.create_md_panel(right)
+
+        self.create_formula_panel()
+
+    # =========================================================
+    # INPUT PANEL
+    # =========================================================
+
+    def create_input_panel(self, parent):
+
+        panel = tk.Frame(
+            parent,
+            bg="white",
+            highlightbackground=self.BLUE,
+            highlightthickness=2
+        )
+
+        panel.pack(
+            fill="both",
+            expand=True
+        )
+
+        # Header
+        header = tk.Frame(
+            panel,
+            bg=self.BLUE,
+            height=52
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="⚙",
+            font=("Segoe UI", 22),
+            bg=self.BLUE,
+            fg="white"
+        ).pack(
+            side="left",
+            padx=(18, 8)
+        )
+
+        tk.Label(
+            header,
+            text="Meter Input",
+            font=("Segoe UI", 16, "bold"),
+            bg=self.BLUE,
+            fg="white"
+        ).pack(
+            side="left"
+        )
+
+        body = tk.Frame(
+            panel,
+            bg="white"
+        )
+
+        body.pack(
+            fill="both",
+            expand=True,
+            padx=22,
+            pady=20
+        )
+
+        # ======================================================
+        # Voltage
+        # ======================================================
+
+        self.create_input_row(
+            body,
+            "Voltage (V)",
+            self.voltage_var,
+            0,
+            "V"
+        )
+
+        # ======================================================
+        # Current
+        # ======================================================
+
+        self.create_input_row(
+            body,
+            "Current (A)",
+            self.current_var,
+            1,
+            "A"
+        )
+
+        # ======================================================
+        # PF TYPE
+        # ======================================================
+
+        tk.Label(
+            body,
+            text="Power Factor",
+            font=("Segoe UI", 10),
+            bg="white",
+            fg=self.TEXT
+        ).grid(
             row=2,
             column=0,
-            padx=(15, 7),
-            pady=3,
-            sticky="nsew"
+            sticky="w",
+            pady=8
         )
 
-        ttk.Label(
-            energy_frame,
-            text="Active Energy"
-        ).grid(row=0, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            energy_frame,
-            textvariable=self.active_energy,
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, padx=15, pady=5)
-
-        ttk.Label(
-            energy_frame,
-            text="Reactive Energy"
-        ).grid(row=1, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            energy_frame,
-            textvariable=self.reactive_energy,
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=1, padx=15, pady=5)
-
-        ttk.Label(
-            energy_frame,
-            text="Apparent Energy"
-        ).grid(row=2, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            energy_frame,
-            textvariable=self.apparent_energy,
-            font=("Arial", 11, "bold")
-        ).grid(row=2, column=1, padx=15, pady=5)
-
-        # ========================================================
-        # MD FRAME
-        # ========================================================
-
-        md_frame = ttk.LabelFrame(
-            scrollable_frame,
-            text="Maximum Demand",
-            padding=10
+        pf_combo = ttk.Combobox(
+            body,
+            textvariable=self.pf_type_var,
+            values=[
+                "Direct PF",
+                "Angle",
+                "Quadrature PF"
+            ],
+            state="readonly",
+            width=19
         )
 
-        md_frame.grid(
+        pf_combo.grid(
             row=2,
             column=1,
-            padx=(7, 12),
-            pady=5,
-            sticky="nsew"
+            sticky="ew",
+            pady=8
         )
 
-        ttk.Label(
-            md_frame,
-            text="Active MD"
-        ).grid(row=0, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            md_frame,
-            textvariable=self.active_md,
-            font=("Arial", 11, "bold")
-        ).grid(row=0, column=1, padx=15, pady=5)
-
-        ttk.Label(
-            md_frame,
-            text="Reactive MD"
-        ).grid(row=1, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            md_frame,
-            textvariable=self.reactive_md,
-            font=("Arial", 11, "bold")
-        ).grid(row=1, column=1, padx=15, pady=5)
-
-        ttk.Label(
-            md_frame,
-            text="Apparent MD"
-        ).grid(row=2, column=0, padx=15, pady=5)
-
-        ttk.Label(
-            md_frame,
-            textvariable=self.apparent_md,
-            font=("Arial", 11, "bold")
-        ).grid(row=2, column=1, padx=15, pady=5)
-
-        # ========================================================
-        # FORMULAS
-        # ========================================================
-
-        formula_frame = ttk.LabelFrame(
-            scrollable_frame,
-            text="Formulas",
-            padding=10
+        pf_combo.bind(
+            "<<ComboboxSelected>>",
+            self.update_pf_label
         )
 
-        formula_frame.grid(
+        # ======================================================
+        # PF VALUE
+        # ======================================================
+
+        self.pf_label = tk.Label(
+            body,
+            text="Value",
+            font=("Segoe UI", 10),
+            bg="white",
+            fg=self.TEXT
+        )
+
+        self.pf_label.grid(
             row=3,
             column=0,
-            columnspan=2,
+            sticky="w",
+            pady=8
+        )
+
+        ttk.Entry(
+            body,
+            textvariable=self.pf_value_var,
+            width=22
+        ).grid(
+            row=3,
+            column=1,
+            sticky="ew",
+            pady=8
+        )
+
+        # ======================================================
+        # TIME
+        # ======================================================
+
+        self.create_input_row(
+            body,
+            "Time",
+            self.time_var,
+            4,
+            "Seconds"
+        )
+
+        # ======================================================
+        # MD INTERVAL
+        # ======================================================
+
+        tk.Label(
+            body,
+            text="MD Interval",
+            font=("Segoe UI", 10),
+            bg="white",
+            fg=self.TEXT
+        ).grid(
+            row=5,
+            column=0,
+            sticky="w",
+            pady=8
+        )
+
+        md_combo = ttk.Combobox(
+            body,
+            textvariable=self.md_interval_var,
+            values=[
+                "900",
+                "1800",
+                "3600"
+            ],
+            state="readonly",
+            width=19
+        )
+
+        md_combo.grid(
+            row=5,
+            column=1,
+            sticky="ew",
+            pady=8
+        )
+
+        tk.Label(
+            body,
+            text="seconds",
+            font=("Segoe UI", 9),
+            fg=self.BLUE,
+            bg="white"
+        ).grid(
+            row=5,
+            column=2,
+            padx=(6, 0)
+        )
+
+        # ======================================================
+        # BUTTONS
+        # ======================================================
+
+        button_frame = tk.Frame(
+            body,
+            bg="white"
+        )
+
+        button_frame.grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            pady=(25, 5)
+        )
+
+        calculate_button = tk.Button(
+            button_frame,
+            text="▣  CALCULATE",
+            command=self.calculate,
+            bg="#0969F5",
+            fg="white",
+            activebackground="#0757D4",
+            activeforeground="white",
+            font=("Segoe UI", 11, "bold"),
+            relief="flat",
+            cursor="hand2",
+            padx=25,
+            pady=10
+        )
+
+        calculate_button.pack(
+            side="left",
+            padx=(0, 10)
+        )
+
+        reset_button = tk.Button(
+            button_frame,
+            text="↻  RESET",
+            command=self.reset,
+            bg="white",
+            fg=self.BLUE,
+            activebackground="#EEF6FF",
+            font=("Segoe UI", 11, "bold"),
+            relief="solid",
+            borderwidth=1,
+            cursor="hand2",
+            padx=25,
+            pady=9
+        )
+
+        reset_button.pack(
+            side="left"
+        )
+
+        # ======================================================
+        # INFO
+        # ======================================================
+
+        info = tk.Label(
+            body,
+            text=(
+                "5–30 A  |  1-Phase 2-Wire\n"
+                "Recommended MD interval: 900 seconds (15 min)"
+            ),
+            font=("Segoe UI", 9),
+            fg=self.GRAY,
+            bg="white",
+            justify="center"
+        )
+
+        info.grid(
+            row=7,
+            column=0,
+            columnspan=3,
+            pady=(20, 0)
+        )
+
+        body.columnconfigure(1, weight=1)
+
+    # =========================================================
+    # INPUT ROW
+    # =========================================================
+
+    def create_input_row(
+        self,
+        parent,
+        label,
+        variable,
+        row,
+        unit
+    ):
+
+        tk.Label(
+            parent,
+            text=label,
+            font=("Segoe UI", 10),
+            bg="white",
+            fg=self.TEXT
+        ).grid(
+            row=row,
+            column=0,
+            sticky="w",
+            pady=8
+        )
+
+        ttk.Entry(
+            parent,
+            textvariable=variable,
+            width=22
+        ).grid(
+            row=row,
+            column=1,
+            sticky="ew",
+            pady=8
+        )
+
+        tk.Label(
+            parent,
+            text=unit,
+            font=("Segoe UI", 9),
+            fg=self.BLUE,
+            bg="white"
+        ).grid(
+            row=row,
+            column=2,
+            padx=(6, 0)
+        )
+
+    # =========================================================
+    # POWER PANEL
+    # =========================================================
+
+    def create_power_panel(self, parent):
+
+        panel = tk.Frame(
+            parent,
+            bg="white",
+            highlightbackground=self.BLUE,
+            highlightthickness=2
+        )
+
+        panel.pack(
+            fill="x",
+            pady=(0, 12)
+        )
+
+        header = self.section_header(
+            panel,
+            "⚡",
+            "Power Calculation"
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        cards = tk.Frame(
+            panel,
+            bg="white"
+        )
+
+        cards.pack(
+            fill="x",
             padx=15,
-            pady=5,
-            sticky="ew"
+            pady=15
         )
 
-        formulas = (
-            "Active Power     P = V × I × PF\n"
-            "Apparent Power   S = V × I\n"
-            "Reactive Power   Q = √(S² − P²)\n"
-            "Energy           E = Power × (Time / 3600)\n"
-            "MD               MD = Power × (Running Time / IP Time)"
+        self.create_card(
+            cards,
+            "Active Power",
+            self.active_power_var,
+            "#DFF1FF",
+            "#0B5CAD"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
         )
 
-        ttk.Label(
-            formula_frame,
-            text=formulas,
-            font=("Arial", 9)
-        ).pack(fill="x")
+        self.create_card(
+            cards,
+            "Reactive Power",
+            self.reactive_power_var,
+            "#EFE3FF",
+            "#6D22A8"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
 
-    # ============================================================
-    # CALCULATION
-    # ============================================================
+        self.create_card(
+            cards,
+            "Apparent Power",
+            self.apparent_power_var,
+            "#E2F2FF",
+            "#07549A"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+        # PF row
+        pf_frame = tk.Frame(
+            panel,
+            bg=self.GREEN
+        )
+
+        pf_frame.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 15)
+        )
+
+        tk.Label(
+            pf_frame,
+            text="⚡  Power Factor",
+            font=("Segoe UI", 11, "bold"),
+            fg=self.GREEN_TEXT,
+            bg=self.GREEN
+        ).pack(
+            side="left",
+            padx=15,
+            pady=10
+        )
+
+        tk.Label(
+            pf_frame,
+            textvariable=self.pf_var,
+            font=("Segoe UI", 13, "bold"),
+            fg="#111827",
+            bg=self.GREEN
+        ).pack(
+            side="left",
+            padx=10
+        )
+
+        tk.Frame(
+            pf_frame,
+            bg="#8AD6AA",
+            width=2,
+            height=35
+        ).pack(
+            side="left",
+            padx=25
+        )
+
+        tk.Label(
+            pf_frame,
+            text="∠  PF Angle",
+            font=("Segoe UI", 11, "bold"),
+            fg=self.GREEN_TEXT,
+            bg=self.GREEN
+        ).pack(
+            side="left"
+        )
+
+        tk.Label(
+            pf_frame,
+            textvariable=self.angle_var,
+            font=("Segoe UI", 13, "bold"),
+            fg="#111827",
+            bg=self.GREEN
+        ).pack(
+            side="left",
+            padx=15
+        )
+
+    # =========================================================
+    # ENERGY PANEL
+    # =========================================================
+
+    def create_energy_panel(self, parent):
+
+        panel = tk.Frame(
+            parent,
+            bg="white",
+            highlightbackground=self.BLUE,
+            highlightthickness=2
+        )
+
+        panel.pack(
+            fill="x",
+            pady=(0, 12)
+        )
+
+        self.section_header(
+            panel,
+            "⚡",
+            "Energy Calculation"
+        ).pack(
+            fill="x"
+        )
+
+        cards = tk.Frame(
+            panel,
+            bg="white"
+        )
+
+        cards.pack(
+            fill="x",
+            padx=15,
+            pady=15
+        )
+
+        self.create_card(
+            cards,
+            "Active Energy",
+            self.active_energy_var,
+            self.YELLOW,
+            self.YELLOW_TEXT
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+        self.create_card(
+            cards,
+            "Reactive Energy",
+            self.reactive_energy_var,
+            "#F1E4FF",
+            self.PURPLE_TEXT
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+        self.create_card(
+            cards,
+            "Apparent Energy",
+            self.apparent_energy_var,
+            "#FFF4D5",
+            "#785400"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+    # =========================================================
+    # MD PANEL
+    # =========================================================
+
+    def create_md_panel(self, parent):
+
+        panel = tk.Frame(
+            parent,
+            bg="white",
+            highlightbackground=self.BLUE,
+            highlightthickness=2
+        )
+
+        panel.pack(
+            fill="x",
+            pady=(0, 12)
+        )
+
+        self.section_header(
+            panel,
+            "▥",
+            "Maximum Demand (MD)"
+        ).pack(
+            fill="x"
+        )
+
+        cards = tk.Frame(
+            panel,
+            bg="white"
+        )
+
+        cards.pack(
+            fill="x",
+            padx=15,
+            pady=15
+        )
+
+        self.create_card(
+            cards,
+            "Active MD",
+            self.active_md_var,
+            "#F8E6FF",
+            "#76249F"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+        self.create_card(
+            cards,
+            "Reactive MD",
+            self.reactive_md_var,
+            "#F8E6FF",
+            "#76249F"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+        self.create_card(
+            cards,
+            "Apparent MD",
+            self.apparent_md_var,
+            "#F8E6FF",
+            "#76249F"
+        ).pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+    # =========================================================
+    # SECTION HEADER
+    # =========================================================
+
+    def section_header(
+        self,
+        parent,
+        icon,
+        title
+    ):
+
+        frame = tk.Frame(
+            parent,
+            bg=self.BLUE,
+            height=48
+        )
+
+        frame.pack_propagate(False)
+
+        tk.Label(
+            frame,
+            text=icon,
+            font=("Segoe UI", 20),
+            bg=self.BLUE,
+            fg="white"
+        ).pack(
+            side="left",
+            padx=(15, 10)
+        )
+
+        tk.Label(
+            frame,
+            text=title,
+            font=("Segoe UI", 15, "bold"),
+            bg=self.BLUE,
+            fg="white"
+        ).pack(
+            side="left"
+        )
+
+        return frame
+
+    # =========================================================
+    # CARD
+    # =========================================================
+
+    def create_card(
+        self,
+        parent,
+        title,
+        variable,
+        bg,
+        title_color
+    ):
+
+        frame = tk.Frame(
+            parent,
+            bg=bg,
+            highlightbackground="#C8D8EA",
+            highlightthickness=1
+        )
+
+        tk.Label(
+            frame,
+            text=title,
+            font=("Segoe UI", 10, "bold"),
+            fg=title_color,
+            bg=bg
+        ).pack(
+            pady=(12, 5)
+        )
+
+        tk.Label(
+            frame,
+            textvariable=variable,
+            font=("Segoe UI", 14, "bold"),
+            fg="#101828",
+            bg=bg
+        ).pack(
+            pady=(0, 12),
+            padx=8
+        )
+
+        return frame
+
+    # =========================================================
+    # FORMULA PANEL
+    # =========================================================
+
+    def create_formula_panel(self):
+
+        panel = tk.Frame(
+            self.root,
+            bg="white",
+            highlightbackground=self.BORDER,
+            highlightthickness=1
+        )
+
+        panel.pack(
+            fill="x",
+            padx=18,
+            pady=(0, 15)
+        )
+
+        header = tk.Frame(
+            panel,
+            bg=self.BLUE,
+            height=42
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="ⓘ   Formulas",
+            font=("Segoe UI", 13, "bold"),
+            bg=self.BLUE,
+            fg="white"
+        ).pack(
+            side="left",
+            padx=15
+        )
+
+        body = tk.Frame(
+            panel,
+            bg="#F8FBFF"
+        )
+
+        body.pack(
+            fill="x",
+            padx=15,
+            pady=10
+        )
+
+        left_text = (
+            "Active Power (P):       P = V × I × PF\n"
+            "Apparent Power (S):     S = V × I\n"
+            "Reactive Power (Q):     Q = √(S² − P²)\n"
+            "Angle PF:                PF = cos(θ)\n"
+            "Quadrature PF:           PF = 1 / √(1 + (Q/P)²)"
+        )
+
+        right_text = (
+            "Energy:\n"
+            "E = Power × (Time / 3600)\n\n"
+            "Maximum Demand:\n"
+            "MD = Block Energy × (3600 / MD Interval)"
+        )
+
+        tk.Label(
+            body,
+            text=left_text,
+            font=("Segoe UI", 9),
+            bg="#F8FBFF",
+            fg=self.TEXT,
+            justify="left"
+        ).pack(
+            side="left",
+            anchor="w",
+            padx=10
+        )
+
+        separator = tk.Frame(
+            body,
+            bg="#BCD0E8",
+            width=1,
+            height=105
+        )
+
+        separator.pack(
+            side="left",
+            padx=35
+        )
+
+        tk.Label(
+            body,
+            text=right_text,
+            font=("Segoe UI", 9),
+            bg="#F8FBFF",
+            fg=self.TEXT,
+            justify="left"
+        ).pack(
+            side="left",
+            anchor="w"
+        )
+
+    # =========================================================
+    # UPDATE PF LABEL
+    # =========================================================
+
+    def update_pf_label(self, event=None):
+
+        pf_type = self.pf_type_var.get()
+
+        if pf_type == "Direct PF":
+            self.pf_label.config(text="Value")
+
+        elif pf_type == "Angle":
+            self.pf_label.config(text="Angle (°)")
+
+        elif pf_type == "Quadrature PF":
+            self.pf_label.config(text="Q / P")
+
+    # =========================================================
+    # CALCULATE
+    # =========================================================
 
     def calculate(self):
 
         try:
 
-            # Read inputs
+            V = float(self.voltage_var.get())
+            I = float(self.current_var.get())
+            value = float(self.pf_value_var.get())
 
-            V = float(self.voltage.get())
-            I = float(self.current.get())
-            PF = float(self.pf.get())
-            running_time_seconds = float(self.time.get())
-            md_minutes = float(self.md_interval.get())
+            time_seconds = float(
+                self.time_var.get()
+            )
 
-            # Validation
+            md_interval = float(
+                self.md_interval_var.get()
+            )
+
+            pf_type = self.pf_type_var.get()
+
+            # --------------------------------------------------
+            # VALIDATION
+            # --------------------------------------------------
 
             if V <= 0:
-                raise ValueError("Voltage must be greater than 0.")
+                raise ValueError(
+                    "Voltage must be greater than 0."
+                )
 
             if I < 0:
-                raise ValueError("Current cannot be negative.")
-
-            if PF < -1 or PF > 1:
                 raise ValueError(
-                    "Power Factor must be between -1 and +1."
+                    "Current cannot be negative."
                 )
 
-            if running_time_seconds < 0:
+            if time_seconds <= 0:
                 raise ValueError(
-                    "Time cannot be negative."
+                    "Time must be greater than 0."
                 )
 
-            if md_minutes <= 0:
+            if md_interval <= 0:
                 raise ValueError(
                     "MD interval must be greater than 0."
                 )
 
-            time_hours = running_time_seconds / 3600
+            # --------------------------------------------------
+            # POWER FACTOR
+            # --------------------------------------------------
 
-            # ====================================================
-            # POWER
-            # ====================================================
+            if pf_type == "Direct PF":
 
-            # Apparent Power
+                PF = value
+
+                if PF < -1 or PF > 1:
+                    raise ValueError(
+                        "PF must be between -1 and +1."
+                    )
+
+            elif pf_type == "Angle":
+
+                angle_input = value
+
+                if angle_input < -180 or angle_input > 180:
+                    raise ValueError(
+                        "Angle must be between -180° and +180°."
+                    )
+
+                PF = math.cos(
+                    math.radians(angle_input)
+                )
+
+            else:
+
+                # Quadrature PF
+                Q_by_P = value
+
+                PF = 1 / math.sqrt(
+                    1 + Q_by_P ** 2
+                )
+
+            # --------------------------------------------------
+            # APPARENT POWER
+            # --------------------------------------------------
+
             S = V * I
 
-            # Active Power
+            # --------------------------------------------------
+            # ACTIVE POWER
+            # --------------------------------------------------
+
             P = S * PF
 
-            # Reactive Power
+            # --------------------------------------------------
+            # REACTIVE POWER
+            # --------------------------------------------------
+
             Q = math.sqrt(
-                max(0, S**2 - P**2)
+                max(
+                    0,
+                    S ** 2 - P ** 2
+                )
             )
 
-            # ====================================================
+            # --------------------------------------------------
+            # PF ANGLE
+            # --------------------------------------------------
+
+            angle = math.degrees(
+                math.acos(
+                    max(-1, min(1, abs(PF)))
+                )
+            )
+
+            # --------------------------------------------------
+            # TIME
+            # --------------------------------------------------
+
+            time_hours = (
+                time_seconds / 3600
+            )
+
+            # --------------------------------------------------
             # ENERGY
-            # ====================================================
+            # --------------------------------------------------
 
-            P_kW = abs(P) / 1000
-            Q_kVAR = Q / 1000
-            S_kVA = S / 1000
+            active_energy = (
+                abs(P) / 1000
+            ) * time_hours
 
-            active_E = P_kW * time_hours
-            reactive_E = Q_kVAR * time_hours
-            apparent_E = S_kVA * time_hours
+            reactive_energy = (
+                Q / 1000
+            ) * time_hours
 
-            # ====================================================
-            # MAXIMUM DEMAND
-            # ====================================================
+            apparent_energy = (
+                S / 1000
+            ) * time_hours
 
-            ip_time_seconds = md_minutes * 60
-            running_time_ratio = running_time_seconds / ip_time_seconds
+            # --------------------------------------------------
+            # MD
+            # --------------------------------------------------
 
-            active_MD = P_kW * running_time_ratio
-            reactive_MD = Q_kVAR * running_time_ratio
-            apparent_MD = S_kVA * running_time_ratio
+            md_hours = (
+                md_interval / 3600
+            )
 
-            # ====================================================
+            # Energy consumed during ONE MD block
+            active_block_energy = (
+                abs(P) / 1000
+            ) * md_hours
+
+            reactive_block_energy = (
+                Q / 1000
+            ) * md_hours
+
+            apparent_block_energy = (
+                S / 1000
+            ) * md_hours
+
+            # Average power over block
+            active_md = (
+                active_block_energy /
+                md_hours
+            )
+
+            reactive_md = (
+                reactive_block_energy /
+                md_hours
+            )
+
+            apparent_md = (
+                apparent_block_energy /
+                md_hours
+            )
+
+            # --------------------------------------------------
             # DISPLAY POWER
-            # ====================================================
+            # --------------------------------------------------
 
-            self.active_power.set(
-                f"{P:.3f} W   ({P_kW:.3f} kW)"
+            self.active_power_var.set(
+                f"{P:.3f} W\n({P/1000:.3f} kW)"
             )
 
-            self.reactive_power.set(
-                f"{Q:.3f} VAR   ({Q_kVAR:.3f} kVAR)"
+            self.reactive_power_var.set(
+                f"{Q:.3f} VAR\n({Q/1000:.3f} kVAR)"
             )
 
-            self.apparent_power.set(
-                f"{S:.3f} VA   ({S_kVA:.3f} kVA)"
+            self.apparent_power_var.set(
+                f"{S:.3f} VA\n({S/1000:.3f} kVA)"
             )
 
-            # ====================================================
+            self.pf_var.set(
+                f"{PF:.5f}"
+            )
+
+            self.angle_var.set(
+                f"{angle:.3f}°"
+            )
+
+            # --------------------------------------------------
             # DISPLAY ENERGY
-            # ====================================================
+            # --------------------------------------------------
 
-            self.active_energy.set(
-                f"{active_E:.6f} kWh"
+            self.active_energy_var.set(
+                f"{active_energy:.5f} kWh"
             )
 
-            self.reactive_energy.set(
-                f"{reactive_E:.6f} kVARh"
+            self.reactive_energy_var.set(
+                f"{reactive_energy:.5f} kVARh"
             )
 
-            self.apparent_energy.set(
-                f"{apparent_E:.6f} kVAh"
+            self.apparent_energy_var.set(
+                f"{apparent_energy:.5f} kVAh"
             )
 
-            # ====================================================
+            # --------------------------------------------------
             # DISPLAY MD
-            # ====================================================
+            # --------------------------------------------------
 
-            self.active_md.set(
-                f"{active_MD:.3f} kW"
+            self.active_md_var.set(
+                f"{active_md:.3f} kW"
             )
 
-            self.reactive_md.set(
-                f"{reactive_MD:.3f} kVAR"
+            self.reactive_md_var.set(
+                f"{reactive_md:.3f} kVAR"
             )
 
-            self.apparent_md.set(
-                f"{apparent_MD:.3f} kVA"
+            self.apparent_md_var.set(
+                f"{apparent_md:.3f} kVA"
             )
 
-        except ValueError as error:
+        except Exception as e:
 
             messagebox.showerror(
-                "Input Error",
-                str(error)
+                "Calculation Error",
+                str(e)
             )
 
+    # =========================================================
+    # RESET
+    # =========================================================
 
-# ================================================================
-# MAIN PROGRAM
-# ================================================================
+    def reset(self):
+
+        self.voltage_var.set("230")
+        self.current_var.set("5")
+        self.pf_type_var.set("Direct PF")
+        self.pf_value_var.set("0.8")
+        self.time_var.set("3600")
+        self.md_interval_var.set("900")
+
+        self.update_pf_label()
+
+        self.calculate()
+
+
+# =============================================================
+# MAIN
+# =============================================================
 
 if __name__ == "__main__":
 
     root = tk.Tk()
 
-    app = SinglePhaseEnergyMeter(root)
+    app = EnergyMeterCalculator(root)
 
     root.mainloop()
